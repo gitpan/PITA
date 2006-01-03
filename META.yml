@@ -1,0 +1,24 @@
+abstract: The Perl Image Testing System
+author: 'Adam Kennedy <cpan@ali.as>, L<http://ali.as/>'
+build_requires:
+  File::Remove: 0.22
+  File::Spec: 0.80
+  Test::More: 0.47
+distribution_type: module
+generated_by: Module::Install version 0.500
+license: perl
+name: PITA
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  Carp: 0
+  File::Flock: 101.060501
+  HTTP::Daemon: 0
+  HTTP::Request: 0
+  HTTP::Status: 0
+  Params::Util: 0.07
+  URI: 0
+  version: 0.50
+version: 0.01_01
