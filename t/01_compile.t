@@ -19,28 +19,42 @@ BEGIN {
 	}
 }
 
-use Test::More tests => 10;
+use Test::More tests => 19;
 
 BEGIN {
 	ok( $] > 5.005, 'Perl version is 5.005 or newer' );
 
 	# Only three use statements should be enough
 	# to load all of the classes (for now).
-	use_ok( 'PITA' );
-	use_ok( 'PITA::Guest::Driver' );
-	use_ok( 'PITA::Guest::Driver::Qemu' );
+	use_ok( 'PITA'                       );
+	use_ok( 'PITA::Guest'                );
+	use_ok( 'PITA::Guest::Driver'        );
+	use_ok( 'PITA::Guest::Driver::Local' );
+	use_ok( 'PITA::Guest::Driver::Image' );
+	use_ok( 'PITA::Guest::SupportServer' );
 }
 
-ok( $PITA::VERSION,         'PITA was loaded' );
-ok( $PITA::Report::VERSION, 'PITA::Report was loaded' );
+ok( $PITA::VERSION,      'PITA was loaded'      );
+ok( $PITA::XML::VERSION, 'PITA::XML was loaded' );
 
 foreach my $c ( qw{
+	PITA::Guest
 	PITA::Guest::Driver
+	PITA::Guest::Driver::Local
 	PITA::Guest::Driver::Image
-	PITA::Guest::Driver::Qemu
 	PITA::Guest::SupportServer
 } ) {
 	eval "is( \$PITA::VERSION, \$${c}::VERSION, '$c was loaded and versions match' );";
 }
+
+# Confirm inheritance
+ok( PITA::Guest::SupportServer->isa('Process'), '::SupportServer isa Process' );
+ok( PITA::Guest::SupportServer->isa('Process::Backgroundable'), '::SupportServer isa Backgroundable' );
+
+# Double check the method we use to find a workarea directory
+my $workarea = File::Spec->tmpdir;
+ok( -d $workarea, 'Workarea directory exists'       );
+ok( -r $workarea, 'Workarea directory is readable'  );
+ok( -w $workarea, 'Workarea directory is writeable' );
 
 exit(0);

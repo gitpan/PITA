@@ -1,11 +1,9 @@
-abstract: The Perl Image Testing System
+abstract: The Practical Image Testing Architecture
 author: 'Adam Kennedy <cpan@ali.as>, L<http://ali.as/>'
 build_requires:
-  File::Remove: 0.22
-  File::Spec: 0.80
   Test::More: 0.47
 distribution_type: module
-generated_by: Module::Install version 0.500
+generated_by: Module::Install version 0.520
 license: perl
 name: PITA
 no_index:
@@ -13,12 +11,20 @@ no_index:
     - inc
     - t
 requires:
+  Archive::Extract: 0.07
   Carp: 0
-  File::Flock: 101.060501
+  File::Basename: 0
+  File::Copy: 0
+  File::Find::Rule: 0
+  File::Remove: 0.22
+  File::Spec: 0.80
   HTTP::Daemon: 0
-  HTTP::Request: 0
-  HTTP::Status: 0
-  Params::Util: 0.07
+  LWP: 5.69
+  PITA::Scheme: 0.11
+  PITA::XML: 0.12
+  Params::Util: 0.10
+  Process: 0.10
   URI: 0
+  perl: 5.005
   version: 0.50
-version: 0.01_01
+version: 0.10

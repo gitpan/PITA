@@ -20,11 +20,11 @@ use File::Temp   ();
 use Params::Util '_INSTANCE',
                  '_POSINT',
                  '_HASH';
-use PITA::Report ();
+use PITA::XML    ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.01_01';
+	$VERSION = '0.10';
 }
 
 
@@ -40,27 +40,9 @@ sub new {
 	# Create the object
 	my $self = bless { @_ }, $class;
 
-	# Check the request object
-	unless ( _INSTANCE($self->request, 'PITA::Report::Request') ) {
-		unless ( _HASH($self->{request}) ) {
-			Carp::croak("Did not provide PITA::Report::Request 'request'");
-		}
-
-		# Handle auto-boxing of request param HASH into an object
-		$self->{request} = PITA::Report::Request->new( %{$self->{request}} );
-	}
-
-	# Check the request identifier
-	unless ( _POSINT($self->request_id) ) {
-		Carp::croak("Did not provide a request_id");
-	}
-
-	# Check the file to be tested
-	unless ( $self->request_file ) {
-		Carp::croak("Did not provide the path to the request_file");
-	}
-	unless ( -f $self->request_file and -r _ ) {
-		Carp::croak("The request_file does not exist, or could not be read");
+	# Were we passed the guest object
+	unless ( _INSTANCE($self->guest, 'PITA::XML::Guest') ) {
+		Carp::croak('Missing or invalid guest');
 	}
 
 	# Get ourselves a fresh tmp directory
@@ -68,22 +50,14 @@ sub new {
 		$self->{tempdir} = File::Temp::tempdir();
 	}
 	unless ( -d $self->tempdir and -w _ ) {
-		die("Temporary working direction " . $self->tempdir . " is not writable");
+		die("Temporary directory " . $self->tempdir . " is not writable");
 	}
 
 	$self;
 }
 
-sub request {
-	$_[0]->{request};
-}
-
-sub request_id {
-	$_[0]->{request_id};
-}
-
-sub request_file {
-	$_[0]->{request_file};
+sub guest {
+	$_[0]->{guest};
 }
 
 sub tempdir {
@@ -94,16 +68,21 @@ sub tempdir {
 
 
 #####################################################################
-# PITA::Guest::Driver Methods
+# PITA::Guest::Driver Main Methods
 
-sub prepare {
+sub ping {
 	my $self = shift;
-	1;
+	Carp::croak(ref($self) . " failed to implement 'ping'");
 }
 
-sub execute {
+sub discover {
 	my $self = shift;
-	1;
+	Carp::croak(ref($self) . " failed to implement 'discover'");
+}
+
+sub test {
+	my $self = shift;
+	Carp::croak(ref($self) . " failed to implement 'test'");
 }
 
 1;

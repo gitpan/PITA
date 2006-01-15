@@ -7,11 +7,12 @@ use strict;
 use base 'PITA::Guest::Driver';
 use Carp         ();
 use Params::Util '_POSINT';
+use Config::Tiny ();
 use PITA::Guest::SupportServer ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.01_01';
+	$VERSION = '0.10';
 }
 
 
@@ -122,7 +123,7 @@ sub execute {
 	my $self = shift;
 
 	# Start the Result Server
-	# ...
+	$self->support_server->background;
 
 	# Now boot the image
 	$self->execute_image;
@@ -138,22 +139,35 @@ sub execute {
 sub prepare_scheme_conf {
 	my $self = shift;
 
-	# Create the instance options
-	my $instance = {
-		support_server => $self->support_server_uri,
-		job_id         => $self->request_id,
+	# Create the basic Config::Tiny object
+	my $scheme_conf = $self->request->__as_Config_Tiny;
+
+	# Save the config file as scheme.conf
+	my $scheme_file = File::Spec->catfile( $self->tempdir, 'scheme.conf' );
+	unless ( $scheme_conf->write( $scheme_file ) ) {
+		Carp::croak("Failed to write config to $scheme_file");
+	}
+
+	# Create the image.conf config file
+	my $image_conf = Config::Tiny->new;
+	$image_conf->{_} = {
+		class      => 'PITA::Image::Manager',
+		version    => '0.01',
+		server_uri => $self->support_server_uri,
+		};
+	$image_conf->{task} = {
+		task   => 'Test',
+		job_id => $self->request_id,
+		scheme => $self->request->scheme,
+		path   => '',
+		config => 'scheme.conf',
 		};
 
-	# Create the basic Config::Tiny object
-	my $config = $self->request->__as_Config_Tiny;
-
-	# Add the host-specific config variables
-	$config->{instance} = $instance;
-
-	# Save the config file
-	my $file = File::Spec->catfile( $self->tempdir, 'scheme.conf' );
-	$config->write( $file )
-		or Carp::croak("Failed to write config to $file");
+	# Save the image.conf file
+	my $image_file = File::Spec->catfile( $self->tempdir, 'image.conf' );
+	unless ( $image_conf->write( $image_file ) ) {
+		Carp::croak("Failed to write config to $image_file");
+	}
 
 	1;
 }

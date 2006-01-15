@@ -29,18 +29,21 @@ actually been completed>
 =cut
 
 use strict;
-use Carp          ();
-use File::Spec    ();
-use File::Flock   ();
-use Params::Util  '_POSINT';
-use URI           ();
-use HTTP::Daemon  ();
-use HTTP::Status  ();
-use HTTP::Request ();
+use base 'Process::Backgroundable', 'Process';
+use Carp           ();
+use File::Spec     ();
+use File::Flock    ();
+use File::Remove   ();
+use Params::Util   '_POSINT';
+use URI            ();
+use HTTP::Daemon   ();
+use HTTP::Status   ();
+use HTTP::Request  ();
+use HTTP::Response ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.01_01';
+	$VERSION = '0.10';
 }
 
 
@@ -58,7 +61,10 @@ sub new {
 	unless ( $self->{LocalAddr} ) {
 		Carp::croak("SupportServer 'LocalAddr' was not provided");
 	}
-	if ( $self->{LocalPort} and ! _POSINT($self->{LocalPort}) ) {
+	unless ( $self->{LocalPort} ) {
+		Carp::croak("SupportServer 'LocalPort' was not provided");
+	}
+	unless ( _POSINT($self->{LocalPort}) ) {
 		Carp::croak("SupportServer 'LocalPort' was invalid");
 	}
 	unless ( _POSINT($self->{expected}) ) {
@@ -67,26 +73,14 @@ sub new {
 	unless ( $self->{directory} ) {
 		Carp::croak("SupportServer 'directory' for saving not provided");
 	}
-	unless ( -d $self->{directory} and -w _ ) {
-		Carp::croak("SupportServer 'directory' is not a writable directory");
-	}
 
 	# Internally, make the expected a list
 	$self->{expected} = [ $self->{expected} ];
 
-	# Create the daemon
-	$self->{daemon} = HTTP::Daemon->new(
-		LocalAddr => $self->LocalAddr,
-		$self->LocalPort
-			? ( LocalPort => $self->LocalPort )
-			: (),
-		);
-
-	# If we didn't supply a LocalPort, we should know it now
-	$self->{LocalPort} ||= $self->{daemon}->sockport;
-
 	# Set the base access url
-	$self->{uri} = URI->new($self->{daemon}->url);
+	$self->{uri} = URI->new(
+		"http://" . $self->LocalAddr . ':' . $self->LocalPort . '/'
+		);
 
 	$self;
 }
@@ -115,6 +109,28 @@ sub uri {
 	$_[0]->{uri};
 }
 
+sub pidfile {
+	$_[0]->{pidfile};
+}
+
+sub stop {
+	my $self = shift;
+
+	# Delete the PID lock, and manually remove the file if needed
+	if ( $self->pidfile and -f $self->pidfile ) {
+		File::Remove::remove($self->pidfile);
+		delete $self->{pidfile};
+	}
+
+	# If we aren't running, clear the daemon too
+	if ( ! $self->{run} and $self->daemon ) {
+		undef $self->{daemon};
+		delete $self->{daemon};
+	}
+
+	1;
+}
+
 
 
 
@@ -122,114 +138,115 @@ sub uri {
 #####################################################################
 # Main Methods
 
-# Launches the server
-sub start {
+# Prepare and bind resources
+sub prepare {
 	my $self = shift;
+	return 1 if $self->{prepared};
+	$self->{prepared} = 1;
 
-	# Fork to launch the server
-	$self->{child} = fork();
-	unless ( defined $self->{child} ) {
-		delete $self->{child};
-		Carp::croak("Failed to fork RequestServer");
+	# Does the support-server directory exist
+	unless ( -d $self->{directory} and -w _ ) {
+		return undef;
+		# Carp::croak("SupportServer 'directory' is not a writable directory");
 	}
 
-	$self->{child}
-		? $self->_parent_start
-		: $self->_child_start;
-}
+	# Create the daemon
+	$self->{daemon} = HTTP::Daemon->new(
+		LocalAddr => $self->LocalAddr,
+		LocalPort => $self->LocalPort,
+		ReuseAddr => 1,
+		);
+	unless ( $self->daemon ) {
+		#return undef;
+		Carp::croak("Failed to create daemon object: $@");
+	}
+	$self->daemon->timeout(1);
 
-sub stop {
-	my $self = shift;
-	return 1 unless exists $self->{child};
-
-	# There's a big difference between stopping at the parent
-	# and child levels.
-	$self->{child}
-		? $self->_parent_stop
-		: $self->_child_stop;
-}
-
-
-
-
-#####################################################################
-# Parent-Specific Methods
-
-sub _parent_start {
-	my $self = shift;
-
-	# Kill off our daemon immediately to prevent
-	# shared handles
-	delete $self->{daemon};
+	# Create the PID file
+	$self->{pidfile} = File::Spec->catfile(
+		$self->directory, "$$.pid",
+		);
+	open( PID, '>', $self->{pidfile} ) or return undef;
+	print PID $self->uri . "\n"        or return undef;
+	close PID                          or return undef;
 
 	1;
 }
 
-sub _parent_stop {
+sub run {
 	my $self = shift;
+	return 1 if $self->{run};
+	$self->{run} = 1;
 
-	
-}
-
-sub _parent_pidfile {
-	my $self = shift;
-	unless ( $self->{child} ) {
-		die("No child PID. _parent_pidfile called in bad context");
-	}
-	File::Spec->catfile( $self->directory, "$self->{child}.pid" );
-}
-
-
-
-
-
-#####################################################################
-# Child-Specific Methods
-
-sub _child_start {
-	my $self = shift;
-
-	# Create the PID file
-	$self->{pidlock} = File::Flock->new(
-		$self->_child_pidfile, undef, 'nonblocking',
-		) or Carp::croak("Failed to create lockfile");
-
-	# Continue to the main run sequence
-	$self->_child_run;
-}
-
-# Main run-loop
-sub _child_run {
-	my $self   = shift;
-	my $daemon = $self->{daemon}
-		or die "->_child_run called without daemon object";
+	# Set the SIGTERM shutdown hook
+	my $daemon = $self->daemon;
+	local $SIG{TERM} = sub { $self->stop };
 
 	# Wait for connections
-	while ( my $c = $daemon->accept ) {
+	while ( -f $self->pidfile ) {
+		my $c = $daemon->accept or next;
 		my $r = $c->get_request;
 		if ( $r ) {
-			$self->_child_request( $r, $c );
+			eval { $self->_request( $r, $c ) };
+			$c->send_error(
+				HTTP::Status::RC_INTERNAL_SERVER_ERROR(),
+				"$@" ) if $@;
 		} else {
 			$c->send_error(
 				HTTP::Status::RC_INTERNAL_SERVER_ERROR()
 				);
 		}
+		$c->force_last_request;
 		$c->close;
 		undef($c);
-
-		# If we run out of things to expect, shut down
-		last unless $self->expected;
 	}
 
-	# Failed timeout...?
-	$self->_child_stop;
+	# Clean up our resources
+	undef $self->{daemon};
+
+	1;
 }
 
-# Handle a single request
-sub _child_request {
+sub _request {
 	my ($self, $r, $c) = @_;
 
-	$DB::single = 1;
+	# Send to the appropriate handlers
+	if ( $r->method eq 'GET' ) {
+		return $self->_request_get( $r, $c );
+	}
+	if ( $r->method eq 'PUT' ) {
+		return $self->_request_put( $r, $c );
+	}
+
+	# Unsupported method
+	return $c->send_error(
+		HTTP::Status::RC_METHOD_NOT_ALLOWED(),
+		'Only GET and PUT supported on this server',
+		);
+}
+
+sub _request_get {
+	my ($self, $r, $c) = @_;
+
+	# Create our response
+	my $say      = ref($self) . ' ' . $VERSION . "\n";
+	my $response = HTTP::Response->new( 200 => 'Pong', [
+		'Content-Type'   => 'text/html',
+		'Content-Length' => length($say),
+		], $say );
+	unless ( $response ) {
+		# Failed to create the response, wtf?
+		return $c->send_error(
+			HTTP::Status::RC_INTERNAL_SERVER_ERROR()
+			);
+	}
+
+	# Send the response
+	$c->send_response( $response );
+}
+
+sub _request_put {
+	my ($self, $r, $c) = @_;
 
 	# The path should be /$expected
 	my $uri  = $r->uri;
@@ -248,14 +265,6 @@ sub _child_request {
 		return $c->send_error(
 			HTTP::Status::RC_NOT_FOUND(),
 			'Not expecting that PITA request identifier',
-			);
-	}
-
-	# It must be a POST
-	unless ( $r->method eq 'PUT' ) {
-		return $c->send_error(
-			HTTP::Status::RC_METHOD_NOT_ALLOWED(),
-			'Only PUT is supported',
 			);
 	}
 
@@ -283,32 +292,34 @@ sub _child_request {
 	}
 
 	# Thank them for the upload
-	$c->send_status_line( 200, 'Report recieved and saved ok' );
+	$c->send_basic_header( 200, 'Report recieved and saved ok' );
 
 	# Clear the entry from the expected array
 	@$expected = grep { $_ ne $path } @$expected;
 
+	# Stop if there's none left
+	unless ( @$expected ) {
+		$self->stop;
+	}
+
 	1;
 }
 
-# Shut down
-sub _child_stop {
-	my $self = shift;
 
-	# Clean up our resources
-	delete $self->{pidlock};
-	delete $self->{daemon};
 
-	# Shut down
-	exit(0);
-}
 
-sub _child_pidfile {
-	my $self = shift;
-	File::Spec->catfile( $self->directory, "$$.pid" );
+
+# Clear out the pid file in some more extreme situations.
+# Everything short of a full SIGKILL should be ok.
+sub DESTROY {
+	if ( $_[0]->{pidfile} and -f $_[0]->{pidfile} ) {
+		File::Remove::remove($_[0]->{pidfile});
+	}
 }
 
 1;
+
+__END__
 
 =pod
 

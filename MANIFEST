@@ -11,16 +11,22 @@ inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/PITA.pm
+lib/PITA/Guest.pm
 lib/PITA/Guest/Driver.pm
 lib/PITA/Guest/Driver/Image.pm
-lib/PITA/Guest/Driver/Qemu.pm
+lib/PITA/Guest/Driver/Local.pm
 lib/PITA/Guest/SupportServer.pm
+lib/PITA/Host.pm
+lib/PITA/Test.pm
 LICENSE
 Makefile.PL
 MANIFEST			This list of files
 META.yml
 README
 t/01_compile.t
+t/02_support_server.t
+t/03_guest.t
 t/99_pod.t
-t/util/post_report.pl
-t/util/qemu_run.pl
+t/guests/local_empty.pita
+t/requests/PITA-Test-Dummy-Perl5-Make-1.01.tar.gz
+t/requests/simple_request.pita
