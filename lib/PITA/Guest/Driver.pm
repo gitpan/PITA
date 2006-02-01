@@ -1,22 +1,9 @@
 package PITA::Guest::Driver;
 
-=pod
-
-=head1 NAME
-
-PITA::Guest::Driver - Abstract base for all PITA Guest driver classes
-
-=head1 DESCRIPTION
-
-This class provides a small amount of functionality, and is primarily
-used to by drivers is a superclass so that all driver classes can be
-reliably identified correctly.
-
-=cut
-
 use strict;
 use Carp         ();
 use File::Temp   ();
+use File::Remove ();
 use Params::Util '_INSTANCE',
                  '_POSINT',
                  '_HASH';
@@ -24,7 +11,7 @@ use PITA::XML    ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.10';
+	$VERSION = '0.20';
 }
 
 
@@ -46,11 +33,11 @@ sub new {
 	}
 
 	# Get ourselves a fresh tmp directory
-	unless ( $self->tempdir ) {
-		$self->{tempdir} = File::Temp::tempdir();
+	unless ( $self->injector ) {
+		$self->{injector} = File::Temp::tempdir();
 	}
-	unless ( -d $self->tempdir and -w _ ) {
-		die("Temporary directory " . $self->tempdir . " is not writable");
+	unless ( -d $self->injector and -w _ ) {
+		die("Temporary directory " . $self->injector . " is not writable");
 	}
 
 	$self;
@@ -60,9 +47,10 @@ sub guest {
 	$_[0]->{guest};
 }
 
-sub tempdir {
-	$_[0]->{tempdir};
+sub injector {
+	$_[0]->{injector};
 }
+
 
 
 
@@ -85,9 +73,48 @@ sub test {
 	Carp::croak(ref($self) . " failed to implement 'test'");
 }
 
+
+
+
+
+#####################################################################
+# Support Methods
+
+# Is the param a fully resolved request
+# To be usable, it needs an identifier and an absolute filename path
+# that can be verified to exist.
+# Returns the request or undef if not usable.
+sub _REQUEST {
+	my $self    = shift;
+	my $request = _INSTANCE(shift, 'PITA::XML::Request')    or return undef;
+	$request->id                                            or return undef;
+	File::Spec->file_name_is_absolute( $request->filename ) or return undef;
+	-f $request->filename                                   or return undef;
+	$request;
+}
+
+sub DESTROY {
+	# Delete the temp dirs, ignoring errors
+	if ( $_[0]->{injector} and -d $_[0]->{injector} ) {
+		File::Remove::remove( \1, $_[0]->{injector} );
+	}
+}
+
 1;
 
+__END__
+
 =pod
+
+=head1 NAME
+
+PITA::Guest::Driver - Abstract base for all PITA Guest driver classes
+
+=head1 DESCRIPTION
+
+This class provides a small amount of functionality, and is primarily
+used to by drivers is a superclass so that all driver classes can be
+reliably identified correctly.
 
 =head1 SUPPORT
 
@@ -103,7 +130,7 @@ Adam Kennedy, L<http://ali.as/>, cpan@ali.as
 
 =head1 COPYRIGHT
 
-Copyright (c) 2001 - 2005 Adam Kennedy. All rights reserved.
+Copyright 2005, 2006 Adam Kennedy. All rights reserved.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

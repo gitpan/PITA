@@ -19,10 +19,19 @@ BEGIN {
 	}
 }
 
-use Test::More tests => 40;
+use Test::More tests => 46;
 
 use PITA ();
 use File::Remove 'remove';
+
+sub compare_guests {
+	my ($left, $right, $message) = @_;
+	delete $left->driver->{injector};
+	delete $left->driver->{workarea};
+	delete $right->driver->{injector};
+	delete $right->driver->{workarea};
+	is_deeply( $left, $right, $message );		
+}
 
 # Find the test guest file
 my $local_empty = catfile( 't', 'guests', 'local_empty.pita' );
@@ -63,6 +72,7 @@ SCOPE: {
 }
 
 # Load a PITA::Guest for the local_empty case
+my ($injector, $workarea);
 SCOPE: {
 	my $guest = PITA::Guest->new( $local_empty );
 	isa_ok( $guest, 'PITA::Guest' );
@@ -75,6 +85,14 @@ SCOPE: {
 	is( scalar($guest->guestxml->platforms),    0,  '->platforms(scalar) returns 0' );
 	is_deeply( [ $guest->guestxml->platforms ], [], '->platforms(list) return ()'   ); 
 
+	# The needed directories are created
+	$injector = $guest->driver->injector;
+	$workarea = $guest->driver->workarea;
+	ok( $injector, 'Got an injector directory' );
+	ok( $workarea, 'Got a workarea directory'  );
+	ok( -d $injector, 'Injector directory created' );
+	ok( -d $workarea, 'Workarea directory created' );
+
 	# Ping the Guest
 	ok( $guest->ping, '->ping returned true' );
 
@@ -83,6 +101,11 @@ SCOPE: {
 	is( scalar($guest->guestxml->platforms),    1,  '->platforms(scalar) returns 1' );
 	isa_ok( ($guest->guestxml->platforms)[0], 'PITA::XML::Platform' );
 }
+
+# Are the directories removed on destruction
+sleep 1;
+ok( ! -d $injector, 'Injector directory is cleaned up' );
+ok( ! -d $workarea, 'Workarea directory is cleaned up' );
 
 # Repeat, but this time discover and save it
 SCOPE: {
@@ -97,13 +120,7 @@ SCOPE: {
 	# Did we save ok?
 	my $guest2 = PITA::Guest->new( $local_write );
 	isa_ok( $guest2, 'PITA::Guest' );
-
-	# Ignoring their tempdir values, do they match
-	delete $guest->driver->{tempdir};
-	delete $guest->driver->{workarea};
-	delete $guest2->driver->{tempdir};
-	delete $guest2->driver->{workarea};
-	is_deeply( $guest2, $guest, 'PITA::Guest object saved ok' );
+	compare_guests( $guest2, $guest, 'PITA::Guest object saved ok' );
 }
 
 # Execute a simple test run
@@ -125,6 +142,7 @@ SCOPE: {
 	my $install = ($report->installs)[0];
 	isa_ok( $install, 'PITA::XML::Install' );
 	isa_ok( $install->request, 'PITA::XML::Request' );
+	delete $install->request->{id}; # Ignoring the defaulted id...
 	is_deeply( $install->request, $request, 'Request matched original' );
 	is( scalar($install->commands), 3, 'Found three commands' );
 }

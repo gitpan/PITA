@@ -5,14 +5,23 @@ package PITA::Guest::Driver::Image;
 
 use strict;
 use base 'PITA::Guest::Driver';
-use Carp         ();
-use Params::Util '_POSINT';
-use Config::Tiny ();
+use Carp             ();
+use File::Path       ();
+use File::Temp       ();
+use File::Copy       ();
+use File::Remove     ();
+use File::Basename   ();
+use Storable         ();
+use Params::Util     '_INSTANCE',
+                     '_POSINT',
+                     '_STRING';
+use Config::Tiny     ();
+use Class::Inspector ();
 use PITA::Guest::SupportServer ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.10';
+	$VERSION = '0.20';
 }
 
 
@@ -26,7 +35,16 @@ sub new {
 	my $class = shift;
 	my $self  = $class->SUPER::new(@_);
 
-	# Check we got an image
+	# Check we got an image.
+	unless ( $self->image ) {
+		# Pull the filename from the XML file, mapping it relative
+		# to the original filename and saving as an absolute path
+		if ( $self->{absimage} ) {
+			$self->{image} = delete $self->{absimage};
+		} else {
+			$self->{image} = $self->guest->filename;
+		}
+	}
 	unless ( $self->image ) {
 		Carp::croak("Did not provide the location of the image_file");
 	}
@@ -40,16 +58,21 @@ sub new {
 		Carp::croak("Invalid memory amount (in meg) '" . $self->memory . "'");
 	}
 
-	# Snapshot should be a binary value, defaulting to true. (SURE ABOUT THAT?)
+	# Snapshot should be a binary value, defaulting to true.
+	# This might not be the most ACCURATE, but by always defaulting
+	# to snapshot mode we prevent accidental harm to the image.
 	$self->{snapshot} = 1 unless defined $self->snapshot;
-	$self->{snapshot} = !! defined $self->{snapshot};
+
+	# Unless we have a support server directory, create a new one
+	unless ( $self->support_server_dir ) {
+		$self->{support_server_dir} = File::Temp::tempdir();
+	}
 
 	# Create the support server object
 	unless ( $self->support_server ) {
 		$self->{support_server} = PITA::Guest::SupportServer->new(
 			LocalAddr => $self->support_server_addr,
 			LocalPort => $self->support_server_port,
-			expected  => $self->request_id,
 			directory => $self->support_server_dir,
 			);
 	}
@@ -65,11 +88,15 @@ sub image {
 }
 
 sub memory {
-	$_[0]->{memory};
+	defined $_[0]->{memory}
+		? $_[0]->{memory}
+		: $_[0]->guest->config->{memory};
 }
 
 sub snapshot {
-	$_[0]->{snapshot};
+	defined $_[0]->{snapshot}
+		? $_[0]->{snapshot}
+		: $_[0]->guest->config->{memory};
 }
 
 sub support_server {
@@ -94,10 +121,27 @@ sub support_server_dir {
 		: $_[0]->{support_server_dir};
 }
 
+# Provide a default implementation.
+# Many subclasses will need to override this though.
 sub support_server_uri {
 	my $self = shift;
-	Carp::croak("Failed to generate result_uri for the scheme.conf");
+	URI->new( "http://"
+		. $self->support_server_addr . ':'
+		. $self->support_server_port . '/'
+		);
 }
+
+sub perl5lib_dir {
+	File::Spec->catdir( $_[0]->injector, 'perl5lib' );
+}
+
+sub perl5lib_classes { qw{
+	PITA::Scheme
+	PITA::Scheme::Perl
+	PITA::Scheme::Perl5
+	PITA::Scheme::Perl5::Make
+	PITA::Scheme::Perl5::Build
+} }
 
 
 
@@ -106,27 +150,113 @@ sub support_server_uri {
 #####################################################################
 # PITA::Guest::Driver Methods
 
-sub prepare {
+sub ping {
+	$_[0]->clean_injector;
+	$_[0]->ping_prepare;
+	$_[0]->ping_execute;
+	$_[0]->ping_cleanup;
+}
+
+sub ping_prepare {
 	my $self = shift;
-	$self->SUPER::prepare(@_);
 
-	# Generate the scheme.conf into the tempdir
-	$self->prepare_scheme_conf;
+	# Generate the image.conf
+	$self->prepare_task('ping');
+}
 
-	# Copy the test package into the tempdir
-	$self->prepare_package;
+sub ping_execute {
+	my $self = shift;
+
+	# Start the Support Server instance
+	$self->support_server->background;
+}
+
+sub ping_cleanup {
+	my $self = shift;
 
 	1;
 }
 
-sub execute {
+sub discover {
+	$_[0]->clean_injector;
+	$_[0]->discover_prepare;
+	$_[0]->discover_execute;
+	$_[0]->discover_cleanup;
+}
+
+sub discover_prepare {
 	my $self = shift;
 
-	# Start the Result Server
-	$self->support_server->background;
+	# Copy in the perl5lib modules
+	$self->prepare_perl5lib;
 
-	# Now boot the image
-	$self->execute_image;
+	# Generate the image.conf
+	$self->prepare_task('discover');
+}
+
+sub discover_execute {
+	my $self = shift;
+
+	# Start the Support Server instance
+	$self->support_server->background;
+}
+
+sub discover_cleanup {
+	my $self = shift;
+
+	# Load and check the report file
+	my $report_file = File::Spec->catfile( $self->support_server_dir, '1.pita' );
+	my $report      = PITA::XML::Guest->read($report_file);	
+	unless ( $report->platforms ) {
+		Carp::croak("Discovery report did not contain any platforms");
+	}
+
+	# Add the detected platforms to the configured guest
+	foreach my $platform ( $report->platforms ) {
+		$self->guest->add_platform( $platform );
+	}
+
+	1;
+}
+
+sub test {
+	my $self = shift;
+	$self->clean_injector;
+	$self->test_prepare(@_);
+	$self->test_execute(@_);
+	$self->test_cleanup(@_); # Returns the report
+}
+
+sub test_prepare {
+	my $self = shift;
+
+	# Copy in the perl5lib modules
+	$self->prepare_perl5lib(@_);
+
+	# Generate the scheme.conf into the injector
+	$self->prepare_task(@_);
+
+	1;
+}
+
+sub test_execute {
+	my $self = shift;
+
+	# Start the Support Server instance
+	$self->support_server->background;
+}
+
+sub test_cleanup {
+	my $self    = shift;
+	my $request = shift;
+
+	# Load and return the report file
+	PITA::XML::Report->read(
+		File::Spec->catfile(
+			$self->support_server_dir,
+			$request->id . '.pita',
+			)
+		);
 }
 
 
@@ -136,35 +266,82 @@ sub execute {
 #####################################################################
 # PITA::Guest:Driver::Image Methods
 
-sub prepare_scheme_conf {
+sub prepare_task {
 	my $self = shift;
-
-	# Create the basic Config::Tiny object
-	my $scheme_conf = $self->request->__as_Config_Tiny;
-
-	# Save the config file as scheme.conf
-	my $scheme_file = File::Spec->catfile( $self->tempdir, 'scheme.conf' );
-	unless ( $scheme_conf->write( $scheme_file ) ) {
-		Carp::croak("Failed to write config to $scheme_file");
-	}
+	my $task = shift;
 
 	# Create the image.conf config file
 	my $image_conf = Config::Tiny->new;
 	$image_conf->{_} = {
-		class      => 'PITA::Image::Manager',
-		version    => '0.01',
+		class      => 'PITA::Image',
+		version    => '0.20',
 		server_uri => $self->support_server_uri,
 		};
-	$image_conf->{task} = {
-		task   => 'Test',
-		job_id => $self->request_id,
-		scheme => $self->request->scheme,
-		path   => '',
-		config => 'scheme.conf',
-		};
+	if ( -d $self->perl5lib_dir ) {
+		$image_conf->{_}->{perl5lib} = 'perl5lib';
+	}
+
+	# Add the tasks
+	if ( _STRING($task) and $task eq 'ping' ) {
+		$image_conf->{task} = {
+			task   => 'Ping',
+			job_id => 1,
+			};
+
+	} elsif ( _STRING($task) and $task eq 'discover' ) {
+		# Discovery always uses the job_id 1 (for now)
+		$image_conf->{task} = {
+			task   => 'Discover',
+			job_id => 1,
+			};
+
+		# Tell the support server to expect the report
+		$self->support_server->expect(1);
+
+	} elsif ( $self->_REQUEST($task) ) {
+		# Copy the request, because we need to alter it
+		my $request  = Storable::dclone( $task );
+
+		# Which testing context will we run in
+		### Don't check for error, we WANT to be undef if not a platform
+		my $platform = _INSTANCE(shift, 'PITA::XML::Platform');
+
+		# Set the tarball filename to be relative to current
+		my $filename     = File::Basename::basename( $request->filename );
+		my $tarball_from = $request->filename;
+		my $tarball_to   = File::Spec->catfile(
+			$self->injector, $filename,
+			);
+		$request->{filename} = $filename;
+
+		# Copy the tarball into the injector
+		unless ( File::Copy::copy( $tarball_from, $tarball_to ) ) {
+			Carp::croak("Failed to copy in test package: $!");
+		}
+
+		# Save the request file to the injector
+		my $request_file = 'request-' . $request->id . '.pita';
+		my $request_path = File::Spec->catfile( $self->injector, $request_file );
+		$request->write( $request_path );
+
+		# Save the details of the above to the task section
+		$image_conf->{task} = {
+			task   => 'Test',
+			job_id => $request->id,
+			scheme => $request->scheme,
+			path   => $platform ? $platform->path : '', # '' is default
+			config => $request_file,
+			};
+
+		# Tell the support server to expect the report
+		$self->support_server->expect($request->id);
+
+	} else {
+		Carp::croak("Unexpected or invalid task param to prepare_task");
+	}
 
 	# Save the image.conf file
-	my $image_file = File::Spec->catfile( $self->tempdir, 'image.conf' );
+	my $image_file = File::Spec->catfile( $self->injector, 'image.conf' );
 	unless ( $image_conf->write( $image_file ) ) {
 		Carp::croak("Failed to write config to $image_file");
 	}
@@ -172,30 +349,59 @@ sub prepare_scheme_conf {
 	1;
 }
 
-# Copy in the test package from some other location
-sub prepare_package {
-	my $self = shift;
+# Copy in the perl5lib modules
+sub prepare_perl5lib {
+	my $self     = shift;
+	my $perl5lib = $self->perl5lib_dir;
+	unless ( -d $perl5lib ) {
+		mkdir( $perl5lib ) or Carp::croak("Failed to create perl5lib dir");
+	}
 
-	# Copy to where?
-	my $to = File::Spec->catfile(
-		$self->tempdir, $self->request->filename,
-		);
-	unless ( File::Copy::copy( $self->request_file, $to ) ) {
-		Carp::croak("Failed to copy in test package: $!");
+	# Locate and copy in various classes
+	foreach my $c ( $self->perl5lib_classes ) {
+		my $from  = Class::Inspector->loaded_filename($c)
+		         || Class::Inspector->resolved_filename($c)
+		         or die "$c is not available to copy to perl5lib";
+		my $to = File::Spec->catfile(
+			$self->perl5lib_dir,
+			Class::Inspector->filename( $c ),
+			);
+		File::Path::mkpath( File::Basename::dirname( $to ) ); # Croaks on error
+		File::Copy::copy( $from, $to )
+			or die "Failed to copy $from to $to";
 	}
 
 	1;
 }
 
-# Create the results server
-sub prepare_results_server {
-	my $self = shift;
+
+
+
+
+#####################################################################
+# Support Methods
+
+sub clean_injector {
+	my $self     = shift;
+	my $injector = $self->injector;
+	opendir( INJECTOR, $injector ) or die "opendir: $!";
+	my @files = readdir( INJECTOR );
+	closedir( INJECTOR );
+
+	# Delete them
+	foreach my $f ( File::Spec->no_upwards(@files) ) {
+		my $path = File::Spec->catfile( $injector, $f );
+		File::Remove::remove( \1, $path ) or die "Failed to remove $f from injector";	
+	}
+
 	1;
 }
 
-sub execute_image {
-	my $self = shift;
-	die(ref($self) . " does not implement execute_image");
+sub DESTROY {
+	$_[0]->SUPER::DESTROY();
+	if ( $_[0]->{support_server_dir} and -d $_[0]->{support_server_dir} ) {
+		File::Remove::remove( \1, $_[0]->{support_server_dir} );
+	}
 }
 
 1;

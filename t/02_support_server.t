@@ -19,7 +19,7 @@ BEGIN {
 	}
 }
 
-use Test::More tests => 94;
+use Test::More tests => 112;
 
 use PITA                       ();
 use PITA::Guest::SupportServer ();
@@ -41,6 +41,13 @@ my @params = (
 	LocalAddr => '127.0.0.1',
 	LocalPort => '54832',
 	expected  => 1234,
+	directory => $testdir,
+);
+
+# The common constructor params
+my @noexpected = (
+	LocalAddr => '127.0.0.1',
+	LocalPort => '54832',
 	directory => $testdir,
 );
 
@@ -115,6 +122,10 @@ SCOPE: {
 	is( $server->pidfile, undef,         '->pidfile returns ok'     );
 	#### SAME AS ABOVE
 
+	# The parent methods at this point should have no values
+	is( $server->parent_pid,     '', '->parent_pid matches expected' );
+	is( $server->parent_pidfile, '', '->parent_pidfile matches expected' );
+
 
 
 
@@ -183,6 +194,24 @@ SCOPE: {
 
 
 #####################################################################
+# Check adding expected report AFTER constructor
+
+checkpoint();
+
+SCOPE: {
+	my $server = PITA::Guest::SupportServer->new( @noexpected );
+	isa_ok( $server, 'PITA::Guest::SupportServer' );
+	is_deeply( [ $server->expected ], [], '->expected returns nothing' );
+	ok( $server->expect(1234), '->expect(1234) returns true' );
+	is_deeply( [ $server->expected ], [ 1234 ], '->expected returns nothing' );
+	ok( $server->prepare, '->prepare returns true' );
+}
+
+
+
+
+
+#####################################################################
 # Launch the server, full on
 
 checkpoint();
@@ -207,9 +236,6 @@ SCOPE: {
 			);
 		ok( $server->background, '->background returns ok' );
 	}
-
-	# Wait a second to let it fire up
-	sleep 1;
 
 	# Find the PID file
 	ok( opendir( TESTDIR, $testdir ), 'Opened test directory' );
@@ -242,9 +268,6 @@ SCOPE: {
 			);
 		ok( $server->background, '->background returns ok' );
 	}
-
-	# Wait a second to let it fire up
-	sleep 1;
 
 	# Find the PID file
 	ok( opendir( TESTDIR, $testdir ), 'Opened test directory' );
@@ -290,9 +313,6 @@ SCOPE: {
 		ok( $server->background, '->background returns ok' );
 	}
 
-	# Wait a second to let it fire up
-	sleep 1;
-
 	# Find the PID file
 	ok( opendir( TESTDIR, $testdir ), 'Opened test directory' );
 	my @files = readdir( TESTDIR );
@@ -304,7 +324,9 @@ SCOPE: {
 	ok( kill( 0 => $pid ), "Process $pid detected" );
 	ok( -f $pidfile, 'Confirm pid file creation' );
 
-
+	# Compare with the parent methods
+	is( $server->parent_pid,     $pid,     '->parent_pid matches expected'     );
+	is( $server->parent_pidfile, $pidfile, '->parent_pidfile matches expected' );
 
 	# Get the root
 	my $agent   = LWP::UserAgent->new;
@@ -368,6 +390,47 @@ END_XML
 	# Note:
 	# Don't need to remove the file, it is in supportserver dir,
 	# so it will be removed automatically.
+}
+
+
+
+
+#####################################################################
+# Run the equivalent of a ping test
+
+checkpoint();
+
+SCOPE: {
+	my $server = PITA::Guest::SupportServer->new( @noexpected );
+	isa_ok( $server, 'PITA::Guest::SupportServer' );
+
+	# Launch the backgrounded server
+	SCOPE: {
+		local @Process::Backgroundable::PERLCMD = (
+			@Process::Backgroundable::PERLCMD,
+			'-I' . catdir('blib', 'arch'),
+			'-I' . catdir('blib', 'lib'),
+			$ENV{HARNESS_ACTIVE} ? () : ('-I' . catdir('lib')),
+			);
+		ok( $server->background, '->background returns ok' );
+	}
+
+	# Compare with the parent methods
+	ok( $server->parent_pid,     'Found the server' );
+
+	# Ping the server
+	my $agent   = LWP::UserAgent->new;
+	isa_ok( $agent, 'LWP::UserAgent' );
+	my $request = GET( $server->uri );
+	isa_ok( $request, 'HTTP::Request' );
+	my $response = $agent->request( $request );
+	isa_ok( $response, 'HTTP::Response' );
+	ok( $response->is_success, 'SupportServer returns success' );
+	like( $response->content, qr/PITA::Guest::SupportServer/,
+		'GET / returns a pong' );
+
+	# Server should have stopped
+	ok( ! $server->parent_pid, 'Server has stopped' );
 }
 
 exit(0);

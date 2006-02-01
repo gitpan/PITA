@@ -20,13 +20,14 @@ use File::Spec   ();
 use File::Copy   ();
 use File::Temp   ();
 use File::Which  ();
+use Storable     ();
 use Params::Util '_INSTANCE';
 use PITA::XML    ();
 use PITA::Scheme ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.10';
+	$VERSION = '0.20';
 }
 
 # SHOULD be tested, but recheck on load
@@ -116,29 +117,31 @@ sub discover {
 
 # Execute a test
 sub test {
-	my $self = shift;
-	my %args = @_;
-
-	# Check the params we need
-	my $request = _INSTANCE($args{request}, 'PITA::XML::Request')
+	my $self    = shift;
+	my $request = $self->_REQUEST(shift)
 		or Carp::croak('Did not provide a request');
-	my $platform = _INSTANCE($args{platform}, 'PITA::XML::Platform')
+	my $platform = _INSTANCE(shift, 'PITA::XML::Platform')
 		or Carp::croak('Did not provide a platform');
-	my $archive = $args{archive};
-	unless ( $archive and -f $archive ) {
-		Carp::croak('Did not provide an archive filename, or does not exist');
-	}
 
-	# Populate the driver's tempdir directory
-	### FIXME: This only works if <filename> is just the filename, no dirs
-	my $to = File::Spec->catfile( $self->tempdir, $request->filename );
-	File::Copy::copy( $archive => $to )
-		or Carp::croak('Failed to copy archive to injector');
+	# Set the tarball filename to be relative to current
+
+	my $filename     = File::Basename::basename( $request->filename );
+	my $tarball_from = $request->filename;
+	my $tarball_to   = File::Spec->catfile(
+		$self->injector, $filename,
+		);
+	$request = Storable::dclone( $request );
+	$request->{filename} = $filename;
+
+	# Copy the tarball into the injector
+	unless ( File::Copy::copy( $tarball_from, $tarball_to ) ) {
+		Carp::croak("Failed to copy in test package: $!");
+	}
 
 	# Create the testing scheme
 	my $driver = PITA::Scheme->_DRIVER($request->scheme);
 	my $scheme = $driver->new(
-		injector   => $self->tempdir,
+		injector   => $self->injector,
 		workarea   => $self->workarea,
 		scheme     => $request->scheme,
 		path       => $platform->path,
@@ -154,6 +157,20 @@ sub test {
 	}
 
 	$scheme->report;
+}
+
+
+
+
+
+#####################################################################
+# Support Methods
+
+sub DESTROY {
+	$_[0]->SUPER::DESTROY();
+	if ( $_[0]->{workarea} and -d $_[0]->{workarea} ) {
+		File::Remove::remove( \1, $_[0]->{workarea} );
+	}
 }
 
 1;

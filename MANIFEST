@@ -14,6 +14,7 @@ lib/PITA.pm
 lib/PITA/Guest.pm
 lib/PITA/Guest/Driver.pm
 lib/PITA/Guest/Driver/Image.pm
+lib/PITA/Guest/Driver/Image/Test.pm
 lib/PITA/Guest/Driver/Local.pm
 lib/PITA/Guest/SupportServer.pm
 lib/PITA/Host.pm
@@ -26,7 +27,10 @@ README
 t/01_compile.t
 t/02_support_server.t
 t/03_guest.t
+t/04_guest_image.t
 t/99_pod.t
+t/guests/image_test.img
+t/guests/image_test.pita
 t/guests/local_empty.pita
 t/requests/PITA-Test-Dummy-Perl5-Make-1.01.tar.gz
 t/requests/simple_request.pita

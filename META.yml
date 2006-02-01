@@ -1,30 +1,35 @@
-abstract: The Practical Image Testing Architecture
-author: 'Adam Kennedy <cpan@ali.as>, L<http://ali.as/>'
-build_requires:
-  Test::More: 0.47
-distribution_type: module
-generated_by: Module::Install version 0.520
-license: perl
-name: PITA
-no_index:
-  directory:
+
+no_index: 
+  directory: 
     - inc
     - t
-requires:
-  Archive::Extract: 0.07
-  Carp: 0
-  File::Basename: 0
-  File::Copy: 0
-  File::Find::Rule: 0
+generated_by: Module::Install version 0.550
+distribution_type: module
+version: 0.20
+name: PITA
+author: Adam Kennedy <cpan@ali.as>, L<http://ali.as/>
+license: perl
+build_requires: 
+  Test::More: 0.47
+requires: 
   File::Remove: 0.22
   File::Spec: 0.80
-  HTTP::Daemon: 0
-  LWP: 5.69
-  PITA::Scheme: 0.11
-  PITA::XML: 0.12
+  Storable: 0
+  PITA::Scheme: 0.20
   Params::Util: 0.10
-  Process: 0.10
+  File::Path: 0
+  HTTP::Daemon: 0
+  PITA::XML: 0.20
+  File::Copy: 0
+  File::Find::Rule: 0
   URI: 0
-  perl: 5.005
+  PITA::Image: 0.20
+  Process: 0.16
   version: 0.50
-version: 0.10
+  Carp: 0
+  perl: 5.005
+  Archive::Extract: 0.07
+  File::Temp: 0
+  File::Basename: 0
+  LWP: 5.69
+abstract: The Practical Image Testing Architecture

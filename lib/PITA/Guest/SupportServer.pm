@@ -43,7 +43,7 @@ use HTTP::Response ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.10';
+	$VERSION = '0.20';
 }
 
 
@@ -67,15 +67,17 @@ sub new {
 	unless ( _POSINT($self->{LocalPort}) ) {
 		Carp::croak("SupportServer 'LocalPort' was invalid");
 	}
-	unless ( _POSINT($self->{expected}) ) {
-		Carp::croak("SupportServer 'expected' Report id not provided");
-	}
 	unless ( $self->{directory} ) {
 		Carp::croak("SupportServer 'directory' for saving not provided");
 	}
 
 	# Internally, make the expected a list
-	$self->{expected} = [ $self->{expected} ];
+	if ( defined $self->{expected} ) {
+		unless ( _POSINT($self->{expected}) ) {
+			Carp::croak("SupportServer 'expected' not a posint id");
+		}
+	}
+	$self->{expected} = $self->{expected} ? [ $self->{expected} ] : [];
 
 	# Set the base access url
 	$self->{uri} = URI->new(
@@ -138,6 +140,15 @@ sub stop {
 #####################################################################
 # Main Methods
 
+# Add a report id to the expected list
+sub expect {
+	my $self   = shift;
+	my $report = _POSINT(shift)
+		or Carp::croak("Did not pass a posint Report id");
+	push @{$self->{expected}}, $report;
+	1;
+}
+
 # Prepare and bind resources
 sub prepare {
 	my $self = shift;
@@ -191,6 +202,10 @@ sub run {
 			$c->send_error(
 				HTTP::Status::RC_INTERNAL_SERVER_ERROR(),
 				"$@" ) if $@;
+
+			# Stop if we aren't expecting anything
+			$self->stop unless $self->expected;
+
 		} else {
 			$c->send_error(
 				HTTP::Status::RC_INTERNAL_SERVER_ERROR()
@@ -206,6 +221,60 @@ sub run {
 
 	1;
 }
+
+# There is a problem where sometimes you can be firing requests
+# at it before it is ready.
+# So always pause for a second to let the server prepare to take requests.
+sub background {
+	my $self = shift;
+	$self->SUPER::background(@_);
+	sleep 1;
+	return 1;
+}
+
+
+
+
+
+
+#####################################################################
+# Mirrored functions from the parent side
+
+sub parent_pid {
+	my $self = shift;
+
+	# Get the contents of the working directory
+	opendir( TESTDIR, $self->directory )
+		or die "Failed to open working directory";
+	my @files = readdir( TESTDIR );
+	closedir( TESTDIR );
+
+	# Filter to find the pidfile
+	@files = map { /(\d+)\.pid$/ ? $1 : () }
+		File::Spec->no_upwards( @files );
+	return '' unless @files; # No PID file exists
+
+	# A weirder case would be to find more than one
+	if ( @files > 1 ) {
+		die "Found more than one PID file";
+	}
+
+	$files[0];
+}
+
+sub parent_pidfile {
+	my $self    = shift;
+	my $pid     = $self->parent_pid or return '';
+	my $pidfile = File::Spec->catfile( $self->directory, $pid . ".pid" );
+	-f $pidfile ? $pidfile : '';
+}
+
+
+
+
+
+#####################################################################
+# Support Methods
 
 sub _request {
 	my ($self, $r, $c) = @_;
@@ -297,17 +366,8 @@ sub _request_put {
 	# Clear the entry from the expected array
 	@$expected = grep { $_ ne $path } @$expected;
 
-	# Stop if there's none left
-	unless ( @$expected ) {
-		$self->stop;
-	}
-
 	1;
 }
-
-
-
-
 
 # Clear out the pid file in some more extreme situations.
 # Everything short of a full SIGKILL should be ok.
@@ -337,7 +397,7 @@ Adam Kennedy, L<http://ali.as/>, cpan@ali.as
 
 =head1 COPYRIGHT
 
-Copyright (c) 2001 - 2005 Adam Kennedy. All rights reserved.
+Copyright 2005, 2006 Adam Kennedy. All rights reserved.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

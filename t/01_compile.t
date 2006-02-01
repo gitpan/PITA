@@ -19,19 +19,21 @@ BEGIN {
 	}
 }
 
-use Test::More tests => 19;
+
+use Test::More tests => 21;
 
 BEGIN {
 	ok( $] > 5.005, 'Perl version is 5.005 or newer' );
 
 	# Only three use statements should be enough
 	# to load all of the classes (for now).
-	use_ok( 'PITA'                       );
-	use_ok( 'PITA::Guest'                );
-	use_ok( 'PITA::Guest::Driver'        );
-	use_ok( 'PITA::Guest::Driver::Local' );
-	use_ok( 'PITA::Guest::Driver::Image' );
-	use_ok( 'PITA::Guest::SupportServer' );
+	use_ok( 'PITA'                             );
+	use_ok( 'PITA::Guest'                      );
+	use_ok( 'PITA::Guest::SupportServer'       );
+	use_ok( 'PITA::Guest::Driver'              );
+	use_ok( 'PITA::Guest::Driver::Local'       );
+	use_ok( 'PITA::Guest::Driver::Image'       );
+	use_ok( 'PITA::Guest::Driver::Image::Test' );
 }
 
 ok( $PITA::VERSION,      'PITA was loaded'      );
@@ -42,6 +44,7 @@ foreach my $c ( qw{
 	PITA::Guest::Driver
 	PITA::Guest::Driver::Local
 	PITA::Guest::Driver::Image
+	PITA::Guest::Driver::Image::Test
 	PITA::Guest::SupportServer
 } ) {
 	eval "is( \$PITA::VERSION, \$${c}::VERSION, '$c was loaded and versions match' );";
