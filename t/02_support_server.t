@@ -19,7 +19,7 @@ BEGIN {
 	}
 }
 
-use Test::More tests => 112;
+use Test::More tests => 113;
 
 use PITA                       ();
 use PITA::Guest::SupportServer ();
@@ -84,6 +84,7 @@ SCOPE: {
 
 	# We need kill -15
 	is( $signame[15], 'TERM', 'Signal 15 is SIGTERM' );
+	is( $signame[9],  'KILL', 'Signal  9 is SIGKILL' );
 }
 
 

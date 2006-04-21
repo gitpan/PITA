@@ -1,12 +1,13 @@
 package PITA::Guest::Driver::Image::Test;
 
+use 5.005;
 use strict;
 use base 'PITA::Guest::Driver::Image';
 use PITA::Image ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.20';
+	$VERSION = '0.22';
 }
 
 
@@ -109,7 +110,7 @@ sub test_execute {
 sub _image_manager {
 	my $self    = shift;
 	my $manager = PITA::Image->new(
-		injector => $self->injector,
+		injector => $self->injector_dir,
 		cleanup  => 1,
 		);
 

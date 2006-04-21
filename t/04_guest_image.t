@@ -29,9 +29,9 @@ use File::Remove 'remove';
 
 sub compare_guests {
 	my ($left, $right, $message) = @_;
-	delete $left->driver->{injector};
+	delete $left->driver->{injector_dir};
 	delete $left->driver->{workarea};
-	delete $right->driver->{injector};
+	delete $right->driver->{injector_dir};
 	delete $right->driver->{workarea};
 	is_deeply( $left, $right, $message );		
 }
@@ -69,7 +69,7 @@ unless ( File::Spec->file_name_is_absolute( $tarball ) ) {
 	$tarball = File::Spec->rel2abs( $tarball );
 }
 ok( -f $tarball, 'Confirm that tarball exists (absolute)' );
-$request->{filename} = $tarball;
+$request->file->{filename} = $tarball;
 
 # Override the request id
 $request->{id} = 1234;
@@ -120,19 +120,19 @@ SCOPE: {
 	is_deeply( [ $guest->guestxml->platforms ], [], '->platforms(list) return ()'   ); 
 
 	# Check various working directories are created
-	ok( -d $guest->driver->injector, 'Driver injector is created' );
+	ok( -d $guest->driver->injector_dir, 'Driver injector directory is created' );
 	ok( -d $guest->driver->support_server->directory,
 		'Support Server directory exists' );
 
 	# Save a copy for later
 	@working_dirs = (
-		$guest->driver->injector,
+		$guest->driver->injector_dir,
 		$guest->driver->support_server->directory,
 		);
 
 	# Check that we can prepare for a ping
 	ok( $guest->driver->ping_prepare, '->driver->ping_prepare returns true' );
-	my $injector = $guest->driver->injector;
+	my $injector = $guest->driver->injector_dir;
 	ok( -d $injector, 'Injector exists' );
 	ok( -f catfile( $injector, 'image.conf' ), 'image.conf file created' );
 	ok( ! -d catfile( $injector, 'perl5lib' ), 'perl5lib dir not created' );

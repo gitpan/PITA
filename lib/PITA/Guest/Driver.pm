@@ -11,7 +11,7 @@ use PITA::XML    ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.20';
+	$VERSION = '0.22';
 }
 
 
@@ -33,11 +33,11 @@ sub new {
 	}
 
 	# Get ourselves a fresh tmp directory
-	unless ( $self->injector ) {
-		$self->{injector} = File::Temp::tempdir();
+	unless ( $self->injector_dir ) {
+		$self->{injector_dir} = File::Temp::tempdir();
 	}
-	unless ( -d $self->injector and -w _ ) {
-		die("Temporary directory " . $self->injector . " is not writable");
+	unless ( -d $self->injector_dir and -w _ ) {
+		die("Temporary directory " . $self->injector_dir . " is not writable");
 	}
 
 	$self;
@@ -47,8 +47,8 @@ sub guest {
 	$_[0]->{guest};
 }
 
-sub injector {
-	$_[0]->{injector};
+sub injector_dir {
+	$_[0]->{injector_dir};
 }
 
 
@@ -86,17 +86,18 @@ sub test {
 # Returns the request or undef if not usable.
 sub _REQUEST {
 	my $self    = shift;
-	my $request = _INSTANCE(shift, 'PITA::XML::Request')    or return undef;
-	$request->id                                            or return undef;
-	File::Spec->file_name_is_absolute( $request->filename ) or return undef;
-	-f $request->filename                                   or return undef;
+	my $request = _INSTANCE(shift, 'PITA::XML::Request')          or return undef;
+	$request->id                                                  or return undef;
+	File::Spec->file_name_is_absolute( $request->file->filename ) or return undef;
+	-f $request->file->filename                                   or return undef;
 	$request;
 }
 
 sub DESTROY {
 	# Delete the temp dirs, ignoring errors
-	if ( $_[0]->{injector} and -d $_[0]->{injector} ) {
-		File::Remove::remove( \1, $_[0]->{injector} );
+	if ( $_[0]->{injector_dir} and -d $_[0]->{injector_dir} ) {
+		File::Remove::remove( \1, $_[0]->{injector_dir} );
+		delete $_[0]->{injector_dir};
 	}
 }
 

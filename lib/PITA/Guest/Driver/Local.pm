@@ -12,6 +12,7 @@ The author is an idiot
 
 =cut
 
+use 5.005;
 use strict;
 use base 'PITA::Guest::Driver';
 use version      ();
@@ -27,7 +28,7 @@ use PITA::Scheme ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.20';
+	$VERSION = '0.22';
 }
 
 # SHOULD be tested, but recheck on load
@@ -124,14 +125,14 @@ sub test {
 		or Carp::croak('Did not provide a platform');
 
 	# Set the tarball filename to be relative to current
-
-	my $filename     = File::Basename::basename( $request->filename );
-	my $tarball_from = $request->filename;
+	my $file         = $request->file;
+	my $filename     = File::Basename::basename( $file->filename );
+	my $tarball_from = $file->filename;
 	my $tarball_to   = File::Spec->catfile(
-		$self->injector, $filename,
+		$self->injector_dir, $filename,
 		);
 	$request = Storable::dclone( $request );
-	$request->{filename} = $filename;
+	$request->file->{filename} = $filename;
 
 	# Copy the tarball into the injector
 	unless ( File::Copy::copy( $tarball_from, $tarball_to ) ) {
@@ -141,7 +142,7 @@ sub test {
 	# Create the testing scheme
 	my $driver = PITA::Scheme->_DRIVER($request->scheme);
 	my $scheme = $driver->new(
-		injector   => $self->injector,
+		injector   => $self->injector_dir,
 		workarea   => $self->workarea,
 		scheme     => $request->scheme,
 		path       => $platform->path,

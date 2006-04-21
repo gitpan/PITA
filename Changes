@@ -1,5 +1,14 @@
 Revision history for Perl extension PITA
 
+0.22    Sat 22 Apr 2006
+	- Updating to handle the new PITA::XML changes
+	- Upgraded from Data::UUID to far less insane Data::GUID
+	- Upgraded Module::Install to 0.62
+
+0.21    Tue 14 Feb 2006
+	- Changing a few method names to make the naming scheme of
+	  deep subclassed drivers clearer.
+
 0.20    Thu  3 Feb 2006
 	- Added a PITA::Guest abstraction
 	- Added the ability to auto-discover platforms in a Guest

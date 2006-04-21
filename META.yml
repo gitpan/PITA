@@ -3,9 +3,9 @@ no_index:
   directory: 
     - inc
     - t
-generated_by: Module::Install version 0.550
+generated_by: Module::Install version 0.620
 distribution_type: module
-version: 0.20
+version: 0.22
 name: PITA
 author: Adam Kennedy <cpan@ali.as>, L<http://ali.as/>
 license: perl
@@ -15,15 +15,16 @@ requires:
   File::Remove: 0.22
   File::Spec: 0.80
   Storable: 0
-  PITA::Scheme: 0.20
+  PITA::Scheme: 0.29
+  Data::GUID: 0.04
   Params::Util: 0.10
   File::Path: 0
   HTTP::Daemon: 0
-  PITA::XML: 0.20
+  PITA::XML: 0.29
   File::Copy: 0
   File::Find::Rule: 0
   URI: 0
-  PITA::Image: 0.20
+  PITA::Image: 0.29
   Process: 0.16
   version: 0.50
   Carp: 0

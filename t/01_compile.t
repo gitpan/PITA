@@ -20,7 +20,7 @@ BEGIN {
 }
 
 
-use Test::More tests => 21;
+use Test::More tests => 25;
 
 BEGIN {
 	ok( $] > 5.005, 'Perl version is 5.005 or newer' );
@@ -34,6 +34,8 @@ BEGIN {
 	use_ok( 'PITA::Guest::Driver::Local'       );
 	use_ok( 'PITA::Guest::Driver::Image'       );
 	use_ok( 'PITA::Guest::Driver::Image::Test' );
+	use_ok( 'PITA::Guest::Storage'             );
+	use_ok( 'PITA::Guest::Storage::Simple'     );
 }
 
 ok( $PITA::VERSION,      'PITA was loaded'      );
@@ -46,6 +48,8 @@ foreach my $c ( qw{
 	PITA::Guest::Driver::Image
 	PITA::Guest::Driver::Image::Test
 	PITA::Guest::SupportServer
+	PITA::Guest::Storage
+	PITA::Guest::Storage::Simple
 } ) {
 	eval "is( \$PITA::VERSION, \$${c}::VERSION, '$c was loaded and versions match' );";
 }

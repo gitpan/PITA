@@ -3,6 +3,7 @@ package PITA::Guest::Driver::Image;
 # Provides a base class for PITA Guests that are system images.
 # For example, Qemu, VMWare, etc
 
+use 5.005;
 use strict;
 use base 'PITA::Guest::Driver';
 use Carp             ();
@@ -21,7 +22,7 @@ use PITA::Guest::SupportServer ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.20';
+	$VERSION = '0.22';
 }
 
 
@@ -42,7 +43,7 @@ sub new {
 		if ( $self->{absimage} ) {
 			$self->{image} = delete $self->{absimage};
 		} else {
-			$self->{image} = $self->guest->filename;
+			$self->{image} = ($self->guest->files)[0]->filename;
 		}
 	}
 	unless ( $self->image ) {
@@ -132,7 +133,7 @@ sub support_server_uri {
 }
 
 sub perl5lib_dir {
-	File::Spec->catdir( $_[0]->injector, 'perl5lib' );
+	File::Spec->catdir( $_[0]->injector_dir, 'perl5lib' );
 }
 
 sub perl5lib_classes { qw{
@@ -274,7 +275,7 @@ sub prepare_task {
 	my $image_conf = Config::Tiny->new;
 	$image_conf->{_} = {
 		class      => 'PITA::Image',
-		version    => '0.20',
+		version    => '0.29',
 		server_uri => $self->support_server_uri,
 		};
 	if ( -d $self->perl5lib_dir ) {
@@ -307,12 +308,12 @@ sub prepare_task {
 		my $platform = _INSTANCE(shift, 'PITA::XML::Platform');
 
 		# Set the tarball filename to be relative to current
-		my $filename     = File::Basename::basename( $request->filename );
-		my $tarball_from = $request->filename;
+		my $filename     = File::Basename::basename( $request->file->filename );
+		my $tarball_from = $request->file->filename;
 		my $tarball_to   = File::Spec->catfile(
-			$self->injector, $filename,
+			$self->injector_dir, $filename,
 			);
-		$request->{filename} = $filename;
+		$request->file->{filename} = $filename;
 
 		# Copy the tarball into the injector
 		unless ( File::Copy::copy( $tarball_from, $tarball_to ) ) {
@@ -321,7 +322,7 @@ sub prepare_task {
 
 		# Save the request file to the injector
 		my $request_file = 'request-' . $request->id . '.pita';
-		my $request_path = File::Spec->catfile( $self->injector, $request_file );
+		my $request_path = File::Spec->catfile( $self->injector_dir, $request_file );
 		$request->write( $request_path );
 
 		# Save the details of the above to the task section
@@ -341,7 +342,7 @@ sub prepare_task {
 	}
 
 	# Save the image.conf file
-	my $image_file = File::Spec->catfile( $self->injector, 'image.conf' );
+	my $image_file = File::Spec->catfile( $self->injector_dir, 'image.conf' );
 	unless ( $image_conf->write( $image_file ) ) {
 		Carp::croak("Failed to write config to $image_file");
 	}
@@ -374,16 +375,9 @@ sub prepare_perl5lib {
 	1;
 }
 
-
-
-
-
-#####################################################################
-# Support Methods
-
 sub clean_injector {
 	my $self     = shift;
-	my $injector = $self->injector;
+	my $injector = $self->injector_dir;
 	opendir( INJECTOR, $injector ) or die "opendir: $!";
 	my @files = readdir( INJECTOR );
 	closedir( INJECTOR );
@@ -391,16 +385,24 @@ sub clean_injector {
 	# Delete them
 	foreach my $f ( File::Spec->no_upwards(@files) ) {
 		my $path = File::Spec->catfile( $injector, $f );
-		File::Remove::remove( \1, $path ) or die "Failed to remove $f from injector";	
+		File::Remove::remove( \1, $path ) or die "Failed to remove $f from injector directory";	
 	}
 
 	1;
 }
 
+
+
+
+
+#####################################################################
+# Support Methods
+
 sub DESTROY {
 	$_[0]->SUPER::DESTROY();
 	if ( $_[0]->{support_server_dir} and -d $_[0]->{support_server_dir} ) {
 		File::Remove::remove( \1, $_[0]->{support_server_dir} );
+		delete $_[0]->{support_server_dir};
 	}
 }
 

@@ -26,9 +26,9 @@ use File::Remove 'remove';
 
 sub compare_guests {
 	my ($left, $right, $message) = @_;
-	delete $left->driver->{injector};
+	delete $left->driver->{injector_dir};
 	delete $left->driver->{workarea};
-	delete $right->driver->{injector};
+	delete $right->driver->{injector_dir};
 	delete $right->driver->{workarea};
 	is_deeply( $left, $right, $message );		
 }
@@ -86,7 +86,7 @@ SCOPE: {
 	is_deeply( [ $guest->guestxml->platforms ], [], '->platforms(list) return ()'   ); 
 
 	# The needed directories are created
-	$injector = $guest->driver->injector;
+	$injector = $guest->driver->injector_dir;
 	$workarea = $guest->driver->workarea;
 	ok( $injector, 'Got an injector directory' );
 	ok( $workarea, 'Got a workarea directory'  );

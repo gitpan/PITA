@@ -28,7 +28,7 @@ use PITA::XML      ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.20';
+	$VERSION = '0.22';
 }
 
 
@@ -68,8 +68,9 @@ sub new {
 		}, $class;
 
 	# If and only if the Guest has an image, save its absolute path
-	my $filename = $self->guestxml->filename;
-	if ( defined $filename ) {
+	if ( $self->guestxml->files ) {
+		my $filexml  = ($self->guestxml->files)[0];
+		my $filename = $filexml->filename;
 		if ( File::Spec->file_name_is_absolute( $filename ) ) {
 			$self->{absimage} = $filename;
 		} else {
@@ -239,14 +240,14 @@ sub test {
 	###        portable, and needs improving to split the
 	###        <filename> first before appending.
 	my $archive = File::Basename::dirname($filename);
-	$archive = File::Spec->catfile( $archive, $request->filename );
+	$archive = File::Spec->catfile( $archive, $request->file->filename );
 	unless ( $archive and -f $archive and -r _ ) {
 		Carp::croak('Failed to find archive, or insufficient permissions');
 	}
 	unless ( File::Spec->file_name_is_absolute( $archive ) ) {
 		$archive = File::Spec->rel2abs( $archive );
 	}
-	$request->{filename} = $archive;
+	$request->file->{filename} = $archive;
 
 	# Just use the first platform until we write a selection method
 	my $platform = ($self->guestxml->platforms)[0];
