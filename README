@@ -134,7 +134,7 @@ SUPPORT
     For other issues, contact the author.
 
 AUTHOR
-    Adam Kennedy <cpan@ali.as>, <http://ali.as/>
+    Adam Kennedy <adamk@cpan.org>, <http://ali.as/>
 
 SEE ALSO
     The Practical Image Testing Architecture (<http://ali.as/pita/>)
@@ -142,7 +142,7 @@ SEE ALSO
     PITA::XML, PITA::Scheme, PITA::Guest::Driver::Qemu
 
 COPYRIGHT
-    Copyright 2005, 2006 Adam Kennedy. All rights reserved.
+    Copyright 2005 - 2007 Adam Kennedy.
 
     This program is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.

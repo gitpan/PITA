@@ -26,7 +26,7 @@ use base 'PITA::Guest::Storage';
 
 use vars qw{$VERSION $LOCKFILE};
 BEGIN {
-	$VERSION  = '0.22';
+	$VERSION  = '0.40';
 	$LOCKFILE = 'PITA-Guest-Storage-Simple.lock';
 }
 
@@ -256,7 +256,7 @@ For other issues, contact the author.
 
 =head1 AUTHOR
 
-Adam Kennedy E<lt>cpan@ali.asE<gt>
+Adam Kennedy E<lt>adamk@cpan.orgE<gt>
 
 =head1 SEE ALSO
 
@@ -264,7 +264,7 @@ L<PITA::Guest::Storage>, L<PITA>, L<http://ali.as/pita/>
 
 =head1 COPYRIGHT
 
-Copyright 2005, 2006 Adam Kennedy. All rights reserved.
+Copyright 2005, 2006 Adam Kennedy.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

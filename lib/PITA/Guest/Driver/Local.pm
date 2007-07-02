@@ -28,7 +28,7 @@ use PITA::Scheme ();
 
 use vars qw{$VERSION};
 BEGIN {
-	$VERSION = '0.22';
+	$VERSION = '0.40';
 }
 
 # SHOULD be tested, but recheck on load

@@ -1,11 +1,8 @@
 Changes
-inc/Module/AutoInstall.pm
 inc/Module/Install.pm
-inc/Module/Install/AutoInstall.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
-inc/Module/Install/Include.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
@@ -20,7 +17,6 @@ lib/PITA/Guest/Driver/Image/Test.pm
 lib/PITA/Guest/Driver/Local.pm
 lib/PITA/Guest/Storage.pm
 lib/PITA/Guest/Storage/Simple.pm
-lib/PITA/Guest/SupportServer.pm
 lib/PITA/Host.pm
 lib/PITA/Test.pm
 LICENSE
@@ -29,11 +25,11 @@ MANIFEST			This list of files
 META.yml
 README
 t/01_compile.t
-t/02_support_server.t
 t/03_guest.t
 t/04_guest_image.t
 t/05_guest_storage_simple.t
-t/99_pod.t
+t/99_author.t
+t/bin/pita-imagetest
 t/guests/image_test.img
 t/guests/image_test.pita
 t/guests/local_empty.pita

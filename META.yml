@@ -1,36 +1,42 @@
-
+--- 
+abstract: The Practical Image Testing Architecture
+author: Adam Kennedy <adamk@cpan.org>, L<http://ali.as/>
+build_requires: 
+  Test::More: 0.47
+  Test::Script: 1.02
+distribution_type: module
+generated_by: Module::Install version 0.67
+license: perl
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: PITA
 no_index: 
   directory: 
     - inc
     - t
-generated_by: Module::Install version 0.620
-distribution_type: module
-version: 0.22
-name: PITA
-author: Adam Kennedy <cpan@ali.as>, L<http://ali.as/>
-license: perl
-build_requires: 
-  Test::More: 0.47
 requires: 
-  File::Remove: 0.22
-  File::Spec: 0.80
-  Storable: 0
-  PITA::Scheme: 0.29
-  Data::GUID: 0.04
-  Params::Util: 0.10
-  File::Path: 0
-  HTTP::Daemon: 0
-  PITA::XML: 0.29
-  File::Copy: 0
-  File::Find::Rule: 0
-  URI: 0
-  PITA::Image: 0.29
-  Process: 0.16
-  version: 0.50
+  Archive::Extract: 0.18
   Carp: 0
-  perl: 5.005
-  Archive::Extract: 0.07
-  File::Temp: 0
+  Data::GUID: 0.042
   File::Basename: 0
+  File::Copy: 0
+  File::Find::Rule: 0.30
+  File::Flock: 104.111901
+  File::Path: 0
+  File::Remove: 0.34
+  File::Spec: 0.80
+  File::Temp: 0
+  Getopt::Long: 0
   LWP: 5.69
-abstract: The Practical Image Testing Architecture
+  PITA::Image: 0.40
+  PITA::POE::SupportServer: 0.40
+  PITA::Scheme: 0.40
+  PITA::XML: 0.40
+  Params::Util: 0.10
+  Process: 0.16
+  Storable: 2.14
+  URI: 1.35
+  perl: 5.005
+  version: 0.70
+version: 0.40
