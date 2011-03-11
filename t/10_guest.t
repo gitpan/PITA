@@ -8,10 +8,10 @@ BEGIN {
 	$^W = 1;
 }
 
-use Test::More tests => 46;
+use Test::More tests => 47;
 
-use PITA ();
-use File::Remove 'remove';
+use PITA         ();
+use File::Remove ();
 use File::Spec::Functions ':ALL';
 
 sub compare_guests {
@@ -29,8 +29,7 @@ ok( -f $local_empty, 'Found local_empty test file' );
 
 # Set up the write test guest file
 my $local_write = rel2abs(catfile( 't', 'guests', 'local_write.pita' ));
-      if ( -f $local_write ) { remove( $local_write ) }
-END { if ( -f $local_write ) { remove( $local_write ) } }
+File::Remove::clear($local_write);
 ok( ! -f $local_write, 'local_write.pita does not exist' );
 
 # Find the test request file
@@ -122,6 +121,7 @@ SCOPE: {
 	# Load the request object
 	my $request = PITA::XML::Request->read( $simple_request );
 	isa_ok( $request, 'PITA::XML::Request' );
+	is( $request->id, 'D7F50D84-7618-11DE-BE94-5E75E19EDF37', '->id ok' );
 
 	# Try to test it
 	my $report = $guest->test( $simple_request );
@@ -132,9 +132,6 @@ SCOPE: {
 	my $install = ($report->installs)[0];
 	isa_ok( $install, 'PITA::XML::Install' );
 	isa_ok( $install->request, 'PITA::XML::Request' );
-	delete $install->request->{id}; # Ignoring the defaulted id...
 	is_deeply( $install->request, $request, 'Request matched original' );
 	is( scalar($install->commands), 3, 'Found three commands' );
 }
-
-exit(0);

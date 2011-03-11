@@ -1,15 +1,12 @@
 package PITA;
 
-use 5.005;
+use 5.008;
 use strict;
-use vars qw{$VERSION};
-BEGIN {
-	$VERSION = '0.40';
-}
-
 use PITA::XML           ();
 use PITA::Guest         ();
 use PITA::Guest::Driver ();
+
+our $VERSION = '0.50';
 
 1;
 
@@ -80,8 +77,8 @@ detected quickly.
 
 When a software package like L<perl> releases a new version that
 adds or changes features (or even fixes bugs) there can be thousands
-of packages and millions of lines of code that will be effected by
-the changes. And the more code effected, more higher change of
+of packages and millions of lines of code that will be impacted by
+the changes. And the more code impacted, more higher chance of
 causing bugs.
 
 Fallout Testing involves testing hundreds or thousands of software
@@ -105,14 +102,14 @@ various types) with virtual hardware (of various types).
 On the Image you can install any operating system you like, just
 like on real hardware, and set the operating system up with any
 packages and any languages in any configuration you like, and at the
-end, install a small PITA image manager onto the Image that runs at
-startup time.
+end, install a small piece of software onto the Image that is setup
+to run at startup time.
 
 And then you save the Image.
 
-You can create a few of as many of these PITA Images as you like,
+You can create a few or as many of these PITA Images as you like,
 trade them with other developers or distribute them within your
-company (license permitting).
+company (licenses permitting).
 
 With a set of Images in place, PITA can take a software package
 and inject it an Image where the image manager executes a
@@ -133,7 +130,8 @@ C) or even allow you to define B<your own> specialised testing schemes.
 And further, it lets you seperate the collection of the results from
 the analysis of the results. With only enough analysis embedded inside
 the testing scheme for it to know if and when to abort the testing
-sequence, a PITA installation will spit out a whole pile of XML reports.
+sequence, a PITA installation will primarily just spit out a whole
+pile of XML reports.
 
 These reports can then be stored and run through analysis routines
 seperately. And if the analysis code is improved, you can rerun the
@@ -181,7 +179,7 @@ L<PITA::XML>, L<PITA::Scheme>, L<PITA::Guest::Driver::Qemu>
 
 =head1 COPYRIGHT
 
-Copyright 2005 - 2007 Adam Kennedy.
+Copyright 2005 - 2011 Adam Kennedy.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

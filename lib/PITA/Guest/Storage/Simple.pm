@@ -12,23 +12,28 @@ The L<PITA::Guest::Storage> class provides an API for cataloguing and
 retrieving Guest images, with all the data stored on the filesystem using
 the native XML file formats.
 
+B<PITA::Guest::Storage::Simple> implements a very simple version of
+the L<PITA::Guest::Storage> API.
+
 Guest image location and searching is done the long way, with no indexing.
 
 =head1 METHODS
 
 =cut
 
+use 5.008;
 use strict;
-use Carp       ();
-use File::Spec ();
-use File::Path ();
-use base 'PITA::Guest::Storage';
+use Carp                 ();
+use File::Spec           ();
+use File::Path           ();
+use Params::Util         '_INSTANCE';
+use Data::GUID           ();
+use PITA::XML::Guest     ();
+use PITA::Guest::Storage ();
 
-use vars qw{$VERSION $LOCKFILE};
-BEGIN {
-	$VERSION  = '0.40';
-	$LOCKFILE = 'PITA-Guest-Storage-Simple.lock';
-}
+our $VERSION  = '0.50';
+our @ISA      = 'PITA::Guest::Storage';
+our $LOCKFILE = 'PITA-Guest-Storage-Simple.lock';
 
 
 
@@ -42,7 +47,7 @@ BEGIN {
 =head2 new
 
   my $store = PITA::Guest::Storage::Simple->new(
-  	storage_dir => '/var/pita/storage',
+  	storage_dir => '/var/PITA-Guest-Storable-Simple',
   	);
 
 The C<new> method creates a new simple storage object. It takes a single
@@ -90,7 +95,7 @@ sub storage_dir {
 =head2 create
 
   my $store = PITA::Guest::Storage::Simple->new(
-  	storage_dir => 
+  	storage_dir => '/var/PITA-Guest-Storable-Simple',
   	);
 
 The C<create> constructor creates a new C<PITA::Guest::Storage::Simple>
@@ -115,12 +120,6 @@ sub create {
 		Carp::croak("Failed to create the storage_dir '$storage_dir': $@");
 	}
 
-	# Create the lock file and take it
-	unless ( $self->storage_lock_take ) {
-		# In create, a false return is a bigger problem
-		Carp::croak('Failed to create and take the lock file');
-	}
-
 	$self;
 }
 
@@ -128,24 +127,7 @@ sub create {
 
 =head2 storage_lock
 
-The C<storage_lock> method returns the location of the storage lock file.
-
-The lock file is taken by a C<PITA::Guest::Storage::Simple> object at
-constructor-time, and hold for the duration of the object's existance.
-
-Returns a file path string.
-
-=cut
-
-sub storage_lock {
-	File::Spec->catfile( $_[0]->storage_dir, $LOCKFILE );
-}
-
-=pod
-
-=head2 storage_lock_take
-
-The C<storage_lock_take> method takes a lock on the C<storage_lock> file,
+The C<storage_lock> method takes a lock on the C<storage_lock> file,
 creating it if needed (in the C<create> method case).
 
 It does not wait to take the lock, failing immediately if the lock
@@ -156,58 +138,14 @@ or throws an exception on error.
 
 =cut
 
-sub storage_lock_take {
-	my $self = shift;
-	my $lock = $self->storage_lock;
+sub storage_lock {
+	return 1 if $^O eq 'MSWin32';
 
-	# Take the lock
-
-	# Create the file if needed
-	unless ( -f $lock ) {
-		local *LOCKFILE;
-		open( LOCKFILE, ">$lock" )   or Carp::croak("open: $!" );
-		print LOCKFILE  "A lockfile" or Carp::croak("print: $!");
-		close LOCKFILE               or Carp::croak("close: $!");
-	}
-
-	# Store the lock in the object
-	$self->{storage_lock_object} = 1; ### Temporary object
-
-	1;
-}
-
-=pod
-
-=head2 storage_lock_object
-
-If we have a lock on the storage, returns the lock object for the lock.
-
-Returns a C<XXXXXX> object or false if we do not have a lock
-
-=cut
-
-sub storage_lock_object {
-	$_[0]->{storage_lock_object};	
-}
-
-=pod
-
-=head2 storage_lock_release
-
-If we have a lock on the storage, release the lock.
-
-Returns true once the lock is released, or throws an exception on error
-or if the object does not hold the lock.
-
-=cut
-
-sub storage_lock_delete {
-	my $self = shift;
-	unless ( $self->storage_lock_object ) {
-		Carp::croak('Cannot release a lock that we do not hold');
-	}
-	delete $self->{storage_lock_object};
-	1;
+	# Only lock on Unix
+	require File::Flock;
+	File::Flock->new(
+		File::Spec->catfile( $_[0]->storage_dir, $LOCKFILE ),
+	);
 }
 
 
@@ -219,17 +157,102 @@ sub storage_lock_delete {
 
 sub add_guest {
 	my $self = shift;
-	die 'CODE INCOMPLETE';
+	my $xml  = _INSTANCE(shift, 'PITA::XML::Guest')
+		or Carp::croak('Did not provide a PITA::XML::Guest to add_guest');
+
+	# Is the driver available for this guest
+	unless ( $xml->driver_available ) {
+		Carp::croak("The guest driver " . $xml->driver . " is not available");
+	}
+
+	# Does the guest have a guid...
+	$xml->set_id( Data::GUID->new->as_string ) unless $xml->id;
+
+	# Does the GUID match an existing one
+	if ( $self->guest( $xml->id ) ) {
+		Carp::croak("The guest " . $xml->id . " already exists");
+	}
+
+	# Load a full PITA::Guest object from the file
+	my $guest = PITA::Guest->new( $xml )
+		or die "Failed to load PITA::Guest";
+
+	# Can we ping the guest
+	unless ( $guest->ping ) {
+		Carp::croak("Ping failed, not a valid guest image");
+	}
+
+	# Run discovery if needed
+	unless ( $guest->discovered ) {
+		$guest->discover or Carp::croak("Failed to discover platforms in guest");
+	}
+
+	# Store the guest
+	my $lock = $self->storage_lock;
+	my $file = File::Spec->catfile( $self->storage_dir, $xml->id . '.pita' );
+	$xml->write( $file ) or Carp::croak("Failed to save guest XML file");
+
+	return $xml;
 }
 
+# Each guest has a matching directory name
 sub guest {
 	my $self = shift;
-	die 'CODE INCOMPLETE';
+	my $id   = shift;
+
+	# Find the file
+	my $file = $self->guest_file($id);
+	unless ( -f $file ) {
+		return undef;
+	}
+
+	# Load the guest metadata object
+	my $guest = PITA::XML::Guest->read($file);
+	unless ( $guest->id ) {
+		Carp::croak("Guest id mismatch for $file");
+	}
+
+	return $guest;
+}
+
+sub guest_exists {
+	-f shift->guest_file(shift);
+}
+
+sub guest_file {
+	File::Spec->catfile(
+		$_[0]->storage_dir, "$_[1].pita",
+	);
 }
 
 sub guests {
 	my $self = shift;
-	die 'CODE INCOMPLETE';
+
+	# Find all *.pita files in the storage directory
+	opendir( STORAGE, $self->storage_dir ) or Carp::croak("opendir: $!");
+	my @files = readdir(STORAGE)           or Carp::croak("readdir: $!");
+	closedir( STORAGE )                    or Carp::croak("closedir: $!");
+
+	# Load and check the metadata files
+	my @guests = ();
+	foreach my $file ( @files ) {
+		# Filter out unwanted things
+		next if $file =~ /^\./;
+		next unless -f $file;
+		next unless $file =~ /^(.+)\.pita$/;
+
+		# Load the object
+		my $id    = $1;
+		my $path  = File::Spec->catfile( $self->storage_dir, $file );
+		my $guest = PITA::XML::Guest->read( $path );
+		unless ( $guest->id eq $id ) {
+			Carp::croak("Guest id mismatch for $path");
+		}
+
+		push @guests, $guest;
+	}
+
+	return @guests;
 }
 
 sub platform {
@@ -264,7 +287,7 @@ L<PITA::Guest::Storage>, L<PITA>, L<http://ali.as/pita/>
 
 =head1 COPYRIGHT
 
-Copyright 2005, 2006 Adam Kennedy.
+Copyright 2005 - 2011 Adam Kennedy.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

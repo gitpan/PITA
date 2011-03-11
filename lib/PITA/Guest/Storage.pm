@@ -10,24 +10,21 @@ PITA::Guest::Storage - Guest Storage Engine base class
 
 Looking after Guest images is a full time job.
 
-And so L<PITA> provides a dedicated API for locating, verifying, storing,
-managing and serving the many gigabytes worth of image data that is
-typically stored in a Guest image library.
+And so L<PITA::Guest::Storage> provides a dedicated API for locating,
+verifying, storing, managing and serving the many gigabytes worth of
+image data that is typically stored in a Guest image library.
 
 =head1 METHODS
 
 =cut
 
+use 5.008;
 use strict;
 use Carp         ();
 use Data::GUID   ();
-use Params::Util '_INSTANCE',
-                 '_STRING';
+use Params::Util qw{ _INSTANCE _STRING };
 
-use vars qw{$VERSION};
-BEGIN {
-	$VERSION = '0.40';
-}
+our $VERSION = '0.50';
 
 
 
@@ -47,12 +44,12 @@ BEGIN {
   	);
 
 The C<new> constructor (regardless of the subclass) takes a set of
-key/value params and returns a new C<PITA::Guest::Storage> object.
+key/value params and returns a new B<PITA::Guest::Storage> object.
 
-Note the C<PITA::Guest::Storage> class itself cannot be instantiated
+Note the B<PITA::Guest::Storage> class itself cannot be instantiated
 directly. You can only create objects of subclasses.
 
-Returns a new C<PITA::Guest::Storage> object, or throws an exception
+Returns a new B<PITA::Guest::Storage> object, or throws an exception
 on error.
 
 =cut
@@ -62,7 +59,7 @@ sub new {
 	if ( $class eq __PACKAGE__ ) {
 		Carp::croak('Cannot instantiate PITA::Guest::Storage directly');
 	}
-	bless { @_ }, $class;
+	return bless { @_ }, $class;
 }
 
 
@@ -151,9 +148,15 @@ in the storage, or throws an exception on error.
 
 sub platform {
 	my $self = shift;
-	my $guid  = _GUID(shift)
-		or Carp::croak('Did not provide a GUID to the platform method');
-	Carp::croak( ref($self) . ' has not implemented the platform method' );	
+	my $id   = shift;
+	my @plat = grep { $_->id eq $id } $self->platforms;
+	if ( @plat == 1 ) {
+		return $plat[0];
+	}
+	if ( @plat ) {
+		Carp::croak("Fond more than 1 platform with id $id");
+	}
+	return '';
 }
 
 =pod
@@ -161,7 +164,7 @@ sub platform {
 =head2 platforms
 
 The C<platforms> method returns the Testing Platform metadata for all
-of the platforms in the Guest Storage object.
+of the platforms in the Guest Storage.
 
 Returns a list of L<PITA::XML::Platform> objects, or throws an exception
 on error.
@@ -169,8 +172,7 @@ on error.
 =cut
 
 sub platforms {
-	my $self = shift;
-	Carp::croak( ref($self) . ' has not implemented the platforms method' );
+	map { $_->platforms } $_[0]->guests;
 }
 
 
@@ -209,7 +211,7 @@ L<PITA>, L<http://ali.as/pita/>
 
 =head1 COPYRIGHT
 
-Copyright 2005, 2006 Adam Kennedy.
+Copyright 2005 - 2011 Adam Kennedy.
 
 This program is free software; you can redistribute
 it and/or modify it under the same terms as Perl itself.

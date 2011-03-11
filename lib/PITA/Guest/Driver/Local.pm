@@ -12,24 +12,23 @@ The author is an idiot
 
 =cut
 
-use 5.005;
+use 5.006;
 use strict;
-use base 'PITA::Guest::Driver';
-use version      ();
-use Carp         ();
-use File::Spec   ();
-use File::Copy   ();
-use File::Temp   ();
-use File::Which  ();
-use Storable     ();
-use Params::Util '_INSTANCE';
-use PITA::XML    ();
-use PITA::Scheme ();
+use version             ();
+use Carp                ();
+use File::Spec          ();
+use File::Copy          ();
+use File::Temp          ();
+use File::Which         ();
+use Data::GUID          ();
+use Storable            ();
+use Params::Util        '_INSTANCE';
+use PITA::XML           ();
+use PITA::Scheme        ();
+use PITA::Guest::Driver ();
 
-use vars qw{$VERSION};
-BEGIN {
-	$VERSION = '0.40';
-}
+our $VERSION = '0.50';
+our @ISA     = 'PITA::Guest::Driver';
 
 # SHOULD be tested, but recheck on load
 my $workarea = File::Spec->tmpdir;
@@ -69,7 +68,7 @@ sub new {
 	# Find the install perl version
 	my $local_bin = $self->local_bin;
 	my $lines = `$local_bin -v`;
-	unless ( $lines =~ /^This is perl, v([\d\.]+) built for/m ) {
+	unless ( $lines =~ /^This is perl[^\n]+v([\d\.]+)[^\n]+built for/m ) {
 		Carp::croak("Failed to locate Perl version");
 	}
 	$self->{local_version} = version->new("$1");
@@ -113,7 +112,7 @@ sub discover {
 	$self->guest->discovered and return 1;
 	$self->guest->add_platform(
 		PITA::XML::Platform->autodetect_perl5,
-		);
+	);
 }
 
 # Execute a test
@@ -130,7 +129,7 @@ sub test {
 	my $tarball_from = $file->filename;
 	my $tarball_to   = File::Spec->catfile(
 		$self->injector_dir, $filename,
-		);
+	);
 	$request = Storable::dclone( $request );
 	$request->file->{filename} = $filename;
 
@@ -148,7 +147,7 @@ sub test {
 		path       => $platform->path,
 		request    => $request,
 		request_id => 1234,
-		);
+	);
 
 	# Execute the testing scheme
 	$scheme->prepare_all;
