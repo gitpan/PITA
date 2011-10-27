@@ -7,7 +7,7 @@ use strict;
 use File::Spec                      ();
 use POE::Declare::HTTP::Server 0.05 ();
 
-our $VERSION = '0.50';
+our $VERSION = '0.60';
 our @ISA     = 'POE::Declare::HTTP::Server';
 
 use POE::Declare {
@@ -87,7 +87,6 @@ sub _handler {
 	my $request  = shift;
 	my $response = shift;
 	my $path     = $request->uri->path;
-	# print STDERR "# " . $request->uri . "\n";
 
 	if ( $request->method eq 'GET' ) {
 		# Handle a ping

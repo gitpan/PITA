@@ -26,12 +26,12 @@ use strict;
 use Carp                 ();
 use File::Spec           ();
 use File::Path           ();
-use Params::Util         '_INSTANCE';
+use Params::Util         ();
 use Data::GUID           ();
 use PITA::XML::Guest     ();
 use PITA::Guest::Storage ();
 
-our $VERSION  = '0.50';
+our $VERSION  = '0.60';
 our @ISA      = 'PITA::Guest::Storage';
 our $LOCKFILE = 'PITA-Guest-Storage-Simple.lock';
 
@@ -157,7 +157,7 @@ sub storage_lock {
 
 sub add_guest {
 	my $self = shift;
-	my $xml  = _INSTANCE(shift, 'PITA::XML::Guest')
+	my $xml  = Params::Util::_INSTANCE(shift, 'PITA::XML::Guest')
 		or Carp::croak('Did not provide a PITA::XML::Guest to add_guest');
 
 	# Is the driver available for this guest
@@ -190,7 +190,7 @@ sub add_guest {
 	# Store the guest
 	my $lock = $self->storage_lock;
 	my $file = File::Spec->catfile( $self->storage_dir, $xml->id . '.pita' );
-	$xml->write( $file ) or Carp::croak("Failed to save guest XML file");
+	$xml->write($file) or Carp::croak("Failed to save guest XML file");
 
 	return $xml;
 }

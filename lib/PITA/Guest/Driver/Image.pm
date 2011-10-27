@@ -5,20 +5,20 @@ package PITA::Guest::Driver::Image;
 
 use 5.008;
 use strict;
-use  Carp                         ();
-use  File::Path                   ();
-use  File::Temp                   ();
-use  File::Copy                   ();
-use  File::Remove                 ();
-use  File::Basename               ();
-use  Storable                     ();
-use  Params::Util                 ();
-use  Config::Tiny                 ();
-use  Class::Inspector             ();
-use  PITA::Guest::Driver          ();
-use  PITA::Guest::Server::Process ();
+use Carp                         ();
+use File::Path                   ();
+use File::Temp                   ();
+use File::Copy                   ();
+use File::Remove                 ();
+use File::Basename               ();
+use Storable                     ();
+use Params::Util                 ();
+use Config::Tiny                 ();
+use Class::Inspector             ();
+use PITA::Guest::Driver          ();
+use PITA::Guest::Server::Process ();
 
-our $VERSION = '0.50';
+our $VERSION = '0.60';
 our @ISA     = 'PITA::Guest::Driver';
 
 
@@ -240,19 +240,16 @@ sub discover_cleanup {
 	$self->{support_server_mirrored} = $self->support_server->mirrored;
 	$self->{support_server_results}  = $self->support_server->uploaded;
 
-	# require Devel::Dumpvar;
-	# print STDERR Devel::Dumpvar->dump($self->support_server) . "\n";
-
 	# Get the report file contents
 	my $string = $self->support_server->upload('/1');
 	unless ( Params::Util::_SCALAR($string) ) {
-		Carp::croak("Discovery report was not uploaded to the support server");
+		die "Discovery report was not uploaded to the support server";
 	}
 
 	# Parse into a report
 	my $report = PITA::XML::Guest->read($string);
 	unless ( $report->platforms ) {
-		Carp::croak("Discovery report did not contain any platforms");
+		die "Discovery report did not contain any platforms";
 	}
 
 	# Add the detected platforms to the configured guest
@@ -353,7 +350,7 @@ sub prepare_task {
 	my $image_conf = Config::Tiny->new;
 	$image_conf->{_} = {
 		class      => 'PITA::Image',
-		version    => '0.43',
+		version    => '0.60',
 		server_uri => $self->support_server_uri,
 	};
 	if ( -d $self->perl5lib_dir ) {
@@ -458,7 +455,10 @@ sub clean_injector {
 
 	# Scan for stuff in the injector
 	my $injector = $self->injector_dir;
-	opendir( INJECTOR, $injector ) or die "opendir: $!";
+	# unless ( -d $injector ) {
+		# File::Path::mkpath( $injector ) or die "mkpath($injector): $!";
+	# }
+	opendir( INJECTOR, $injector ) or die "opendir($injector): $!";
 	my @files = readdir( INJECTOR );
 	closedir( INJECTOR );
 

@@ -5,10 +5,10 @@ use strict;
 use Carp         ();
 use File::Temp   ();
 use File::Remove ();
-use Params::Util qw{ _INSTANCE _POSINT _HASH };
+use Params::Util ();
 use PITA::XML    ();
 
-our $VERSION = '0.50';
+our $VERSION = '0.60';
 
 
 
@@ -22,7 +22,7 @@ sub new {
 	my $self  = bless { @_ }, $class;
 
 	# Were we passed the guest object
-	unless ( _INSTANCE($self->guest, 'PITA::XML::Guest') ) {
+	unless ( Params::Util::_INSTANCE($self->guest, 'PITA::XML::Guest') ) {
 		Carp::croak('Missing or invalid guest');
 	}
 
@@ -33,6 +33,7 @@ sub new {
 	unless ( -d $self->injector_dir and -w _ ) {
 		die("Temporary directory " . $self->injector_dir . " is not writable");
 	}
+	$self->{pid} = $$;
 
 	$self;
 }
@@ -80,7 +81,7 @@ sub test {
 # Returns the request or undef if not usable.
 sub _REQUEST {
 	my $self    = shift;
-	my $request = _INSTANCE(shift, 'PITA::XML::Request')          or return undef;
+	my $request = Params::Util::_INSTANCE(shift, 'PITA::XML::Request')          or return undef;
 	$request->id                                                  or return undef;
 	File::Spec->file_name_is_absolute( $request->file->filename ) or return undef;
 	-f $request->file->filename                                   or return undef;
@@ -89,7 +90,13 @@ sub _REQUEST {
 
 sub DESTROY {
 	# Delete the temp dirs, ignoring errors
-	if ( $_[0]->{injector_dir} and -d $_[0]->{injector_dir} ) {
+	if (
+		$_[0]->{pid} == $$
+		and
+		$_[0]->{injector_dir}
+		and
+		-d $_[0]->{injector_dir}
+	) {
 		File::Remove::remove( \1, $_[0]->{injector_dir} );
 		delete $_[0]->{injector_dir};
 	}

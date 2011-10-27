@@ -22,12 +22,12 @@ use File::Temp          ();
 use File::Which         ();
 use Data::GUID          ();
 use Storable            ();
-use Params::Util        '_INSTANCE';
+use Params::Util        ();
 use PITA::XML           ();
 use PITA::Scheme        ();
 use PITA::Guest::Driver ();
 
-our $VERSION = '0.50';
+our $VERSION = '0.60';
 our @ISA     = 'PITA::Guest::Driver';
 
 # SHOULD be tested, but recheck on load
@@ -120,7 +120,7 @@ sub test {
 	my $self    = shift;
 	my $request = $self->_REQUEST(shift)
 		or Carp::croak('Did not provide a request');
-	my $platform = _INSTANCE(shift, 'PITA::XML::Platform')
+	my $platform = Params::Util::_INSTANCE(shift, 'PITA::XML::Platform')
 		or Carp::croak('Did not provide a platform');
 
 	# Set the tarball filename to be relative to current
